@@ -37,7 +37,7 @@ pnpm build
 For local development, apply the SQL migration to the local D1 database using Wrangler before playing:
 
 ```sh
-pnpm exec wrangler d1 migrations apply site-creator-d1 --local --config dist/server/wrangler.json
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_bored_nomad.sql
 pnpm dev
 ```
 
