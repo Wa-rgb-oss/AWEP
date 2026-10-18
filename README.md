@@ -1,52 +1,57 @@
 # AWEP · Engagement Party Jeopardy
 
-A browser party game for Wade and Annabella. The host opens the game on a laptop connected or mirrored to a TV. Guests open the same URL on their phones, enter the six-character room code, and use a large touch buzzer. No guest accounts or installation are required.
+A self-contained game for Wade and Annabella. All frontend, server, game rules, and tests live in this repository. No ChatGPT Sites, Cloudflare account, Supabase, or cloud database is required.
 
-## First version
+## Run the party from your laptop
 
-- Host lobby with invite link and up to 40 players or teams.
-- Five categories, five clues each, worth 100–500 points.
-- Question editor before hosting, with a draft saved on the host device.
-- Host opens buzzers after reading each clue.
-- The server atomically accepts one buzzer winner; the first accepted request wins. Network latency can affect close calls.
-- Players answer aloud. The host marks correct (+value) or incorrect (−value). An incorrect answer reopens buzzers for players who have not tried the clue.
-- Answer reveal, skip, scores, end screen, and refresh reconnection using device-local session tokens.
-- Rooms expire after 24 hours. Joining closes when play starts.
+Install Node.js 22.13 or newer, then download or clone this repository. In its folder run:
 
-**Personalize before the party:** the “The happy couple” and “All about us” categories contain starter prompts with placeholder answers. Replace these in Customize the questions. Do not use this repository to publish private guest information.
+```sh
+npm install
+npm run build
+npm start
+```
 
-## Code and hosting
+The terminal prints two kinds of addresses:
 
-This GitHub repository stores the app source. The initial hosting target is ChatGPT Sites, using a Cloudflare Worker and a D1 database. The frontend uses React and Vinext. GitHub Pages alone cannot run the shared room API or database. Pushing to GitHub does not automatically deploy to Sites.
+- `http://localhost:3000` opens the game on the laptop.
+- `http://192.168.x.x:3000` (your actual address is printed) opens it on phones connected to the **same Wi-Fi**.
 
-`app/page.tsx` contains the responsive TV host and phone views. `app/api/game/route.ts` is the room API. `lib/game.mjs` contains game rules, `lib/questions.mjs` the starter pack, and `db/schema.ts` plus `drizzle/` the database schema and migration.
+Open the printed Wi-Fi address on the laptop too, so the TV lobby shows the correct address for guests. Connect or mirror your laptop to the TV. Customize the questions, choose **Host a game**, and have guests open that same Wi-Fi address on their phones and enter the room code. Allow Node through Windows Firewall on your private network if prompted. Guest Wi-Fi with device isolation may prevent phones from reaching the laptop. Keep the laptop awake and the server terminal running throughout the party.
 
-Host and player credentials are random bearer tokens kept in that browser's local storage. Room responses omit credentials, future questions, and unrevealed answers. A room code permits joining an open lobby, not controlling the host. This is an initial party prototype, without public-service abuse throttling, automated room cleanup, a separate host remote, or a latency-compensated buzzer.
+No accounts or downloads are needed on guest phones. The server runs on your laptop; it does not run inside GitHub. GitHub stores the complete project. GitHub Pages serves static files and cannot run this server by itself. An internet-accessible version would need a separately selected server host or backend; none is configured here.
+
+## Game features
+
+- Up to 40 players or teams; six-character room codes.
+- Five categories of five clues, worth 100–500 points.
+- Question editor and device-local question draft.
+- TV host screen and large phone buzzers.
+- Host opens buzzers after reading each clue, then judges answers spoken aloud.
+- Correct answers add the clue value; wrong answers subtract it and reopen buzzing for other players.
+- Server accepts exactly one first buzz. Close calls depend on network arrival order.
+- Answer reveal, skip, leaderboard, final scores, and refresh reconnection.
+- Rooms expire after 24 hours. New guests must join before play starts.
+- Room data survives a server restart in ignored `data/rooms.json`. Expired rooms are removed when a new room is created.
+
+**Before your party:** replace the placeholder answers in “The happy couple” and “All about us” using Customize the questions. Those are starter prompts, not facts about the couple.
+
+One active host/player identity is remembered per browser. Use a separate phone or browser to join as a player while hosting. Refreshing reconnects; Leave screen clears that browser's identity. Treat the local data folder as private because it contains answers and session tokens.
 
 ## Development
 
-Use Node 22.13 or newer and pnpm. Install dependencies with `pnpm install` (or `npm run install:ci`). The checked-in Sites runtime helpers configure Cloudflare bindings from `.openai/hosting.json`.
-
 ```sh
-pnpm db:generate
-node --test tests/game.test.mjs
-pnpm exec tsc --noEmit
-pnpm build
+npm test
+npm run build
 ```
 
-For local development, apply the SQL migration to the local D1 database using Wrangler before playing:
+For live frontend editing, run `npm start` in one terminal and `npm run dev` in another. Vite forwards `/api` requests to the server on port 3000. The production server uses built files from `dist/`. Set `PORT` to change its listening port and optionally `HOST` to change the bind address; development proxy defaults to port 3000.
 
-```sh
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_bored_nomad.sql
-pnpm dev
-```
+- `src/App.tsx`: TV, phone, lobby, and question editor views.
+- `src/style.css`: responsive styling.
+- `server.mjs`: built-in Node HTTP server and local room persistence.
+- `lib/game.mjs`: authoritative game rules and filtered room responses.
+- `lib/questions.mjs`: starter question pack.
+- `tests/`: game-rule tests and a real HTTP test with two players and simultaneous buzzes, including persistence across server restart.
 
-The host should use a different browser/device from a player; one active identity is remembered per browser. Refreshing reconnects. Choosing Leave screen clears that browser's saved identity. Room data is shared server-side; question drafts stay on the host device.
-
-## Party setup
-
-1. Open the deployed app on your laptop and customize the questions.
-2. Connect the laptop to the TV with HDMI or screen mirroring, then choose Host a game and full screen.
-3. Guests open the same app URL and enter the room code and a name/team.
-4. Start after everyone joins. Select a clue, read it, then open the buzzers.
-5. Judge the answer aloud and continue through the board.
+This first version targets a trusted private party network. It runs as one Node process; do not run multiple instances against the same data file. It does not yet include a separate host remote, Final Jeopardy, or internet-facing abuse controls.
